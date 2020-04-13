@@ -21,7 +21,7 @@ parser.add_argument("-b", type=float,required=True, default=0.3, help='ordering 
 parser.add_argument("-N",type=int,required=True, help='number of "armchairs" along armchair edge')
 parser.add_argument("-M",type=int,required=True, help='number of "zig-zags" along zig-zag edge')
 parser.add_argument("-fig",type=str,default='yes', help='yes or no. Do you need a figure? default=yes')
-parser.add_argument("-format",type=str,default='xyz', help='output coordinate format xyz or pdb. default=xyz ')
+parser.add_argument("-format",type=str,default='xyz', help='output coordinate format xyz, pdb or coord. default=xyz ')
 if len(sys.argv) <4:
     print '\nERROR! You must specified -f, -b, -N, -M options\n'
     parser.print_help()
@@ -178,3 +178,6 @@ if args.format=='pdb':
 elif args.format=='xyz':
     write_xyz(ncc,ncf,'coord'+addname)
     print('figure saved as coord' + addname + '.xyz file')
+elif args.format=='coord':
+    write_coord(ncc,ncf,'coord'+addname)
+    print('figure saved as coord' + addname + '.coord file')
