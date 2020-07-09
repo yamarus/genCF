@@ -1,10 +1,8 @@
-from Tkinter import *
+from tkinter import *
 import numpy as np
 mycanvas=[]
 canv_c={}
 canv_wind=[]
-
-
 class ResizingCanvas(Canvas):
 
     def __init__(self,parent,**kwargs):
@@ -101,8 +99,10 @@ def line(a, b,ofset, canv):
 
 def plot_latt(N,M):
     canv_size = [3 * 140 * N + 140, int(3 ** 0.5 * M * 140 + 140)]
+    global canv_wind
     canv_wind = Toplevel()
-    canv_wind.geometry(str(canv_size[1]/10) + 'x' + str(canv_size[0]/10)+'+'+str(canv_wind.winfo_screenwidth()/2)+'+0')
+
+    canv_wind.geometry('{}x{}+{}+{}'.format(int(canv_size[1]/10),int(canv_size[0]/10),int(canv_wind.winfo_screenwidth()/2),0))
     canv_wind.aspect(canv_size[1], canv_size[0], canv_size[1], canv_size[0])
     myframe = Frame(canv_wind)
     myframe.pack(fill=BOTH, expand=YES)
@@ -128,4 +128,6 @@ def updcircle(i,N,M, c,f_n, F_N):
 
     j=(i//(4*N))*(4*(N-2))+i%(4*N)-4
     mycanvas.itemconfig(canv_c[j], fill=color)
+    canv_wind.title('{}/{} fluorine atoms'.format(f_n,F_N))
+
     mycanvas.update()
