@@ -127,12 +127,12 @@ def calc_prob(i, coords, topo, fluor, beta,
         P_plus = 0.
         P_minus = 0.
     res = np.array([[1, P_plus], [-1, P_minus]])
+
     return res  # return a tuple (2,2) with structure [[orientaion of F(+1), probability],[orientaion of F(-1),probability]]
 
 
-def probsAndZ_calc(zzz, ATOM, coords, topo, fluor, probabilities, beta,one_side):  # recalculate probabilities and Z
-    zzz -= (probabilities[ATOM][0][1] + probabilities[ATOM][1][1])
-
+def probsAndZ_calc(zzz, ATOM, coords, topo, fluor, probabilities, beta,one_side, f_prohibided):  # recalculate probabilities and Z
+    #zzz -= (probabilities[ATOM][0][1] + probabilities[ATOM][1][1])
     probabilities[ATOM] = [[1, 0.], [-1, 0.]]
     neighbours = list(topo[ATOM])  # find all neighbouring carbons
     second_order_neighbours = np.array(ATOM)
@@ -145,78 +145,107 @@ def probsAndZ_calc(zzz, ATOM, coords, topo, fluor, probabilities, beta,one_side)
             neighbours.append(j)
     # print neighbours
     for element in neighbours:
-        zzz -= (probabilities[element][0][1] + probabilities[element][1][1])  # subtract from Z old probabilities
-        if fluor[element] != 0.:
+        #zzz -= (probabilities[element][0][1] + probabilities[element][1][1])  # subtract from Z old probabilities
+        if (fluor[element] != 0.) or (element in f_prohibided):
             probabilities[element] = [[1, 0.], [-1, 0.]]
         else:
             probabilities[element] = calc_prob(element, coords, topo, fluor, beta, zzz,one_side)  # find new probabilities
-            # print '#',probabilities[element]
-        zzz += probabilities[element][0][1] + probabilities[element][1][1]  # add to Z new probabilities
-
+        #zzz += probabilities[element][0][1] + probabilities[element][1][1]  # add to Z new probabilities
+    zzz=np.sum(probabilities)
     return zzz, probabilities
 
+def recalc_choice_list(c_free_array,f_prohibided,probabilities,zz):
+    choice_list=[]
+    p_treshold=1./(len(c_free_array)*10**5)
+    for c in c_free_array:
+        if c not in f_prohibided:
+            p_1 =  (probabilities[c][0][1]+ probabilities[c][1][1])/zz
+            if p_1 > p_treshold: choice_list.append(c)
+    return choice_list
 
-def fluorination(f_n, N, M, zz, c_free_array, coords, full_topo, fluor, f_prohibided, probabilities, beta, F_N,one_side):
-    i = np.random.choice(c_free_array)  # set position of F atom
-    if i not in f_prohibided:
-        res = probabilities[
-            i]  # return an array (2,2) with structure [[orientaion of F(+1), probability],[orientaion of F(-1),probability]]
-        rv = np.random.rand()
-        # print rv,res[0][1]/zz,res[1][1]/zz
-        # print probabilities
-        if 0. < rv < res[0][1] / zz:  # decide, will F be +1
-            pmigr = [probabilities[i][0][1]]
-            zmigr = probabilities[i][0][1]
-            rv_m = np.random.rand()
-            for k in full_topo[i]:
-                zmigr += probabilities[k][0][1]
-                pmigr.append(probabilities[k][0][1])
-            if 0. < rv_m < pmigr[0] / zmigr:
-                j = i
-            elif pmigr[0] / zmigr < rv_m < (pmigr[0] + pmigr[1]) / zmigr:
-                j = full_topo[i][0]
-            elif (pmigr[0] + pmigr[1]) / zmigr < rv_m < (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr:
-                j = full_topo[i][1]
-            elif (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr < rv_m:
-                j = full_topo[i][2]
+def fluorination(f_n, N, M, zz, c_free_array, coords, full_topo, fluor, f_prohibided, probabilities, beta, F_N,one_side,choice_list):
+    try:i = np.random.choice(choice_list)  # set position of F atom
+    except:
+        #print(choice_list,c_free_array)
+        for j in range(len(probabilities)):
+            p=probabilities[j]
+            if p[0][1]==np.inf:
+                fluor[j] = 1
+                f_n += 1
+                zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities, beta, one_side,
+                                                   f_prohibided)
+                updcircle(j, N, M, 1, f_n, F_N)
+                c_free_array.remove(j)
+                choice_list = recalc_choice_list(c_free_array, f_prohibided, probabilities, zz)
+            elif p[1][1]==np.inf:
+                fluor[j] = -1
+                f_n += 1
+                zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities, beta, one_side,
+                                                   f_prohibided)
+                updcircle(j, N, M, -1, f_n, F_N)
+                c_free_array.remove(j)
+                choice_list = recalc_choice_list(c_free_array, f_prohibided, probabilities, zz)
+        return f_n, zz, c_free_array, choice_list
+    res = probabilities[i]  # return an array (2,2) with structure [[orientaion of F(+1), probability],[orientaion of F(-1),probability]]
+    rv = np.random.rand()
+    # print rv,res[0][1]/zz,res[1][1]/zz
+    # print probabilities
+    if 0. < rv < res[0][1] / zz:  # decide, will F be +1
+        pmigr = [probabilities[i][0][1]]
+        zmigr = probabilities[i][0][1]
+        rv_m = np.random.rand()
+        for k in full_topo[i]:
+            zmigr += probabilities[k][0][1]
+            pmigr.append(probabilities[k][0][1])
+        if 0. < rv_m < pmigr[0] / zmigr:
             j = i
-            fluor[j] = 1
-            f_n += 1
-            zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities,beta, one_side)
-            updcircle(j, N, M, 1, f_n, F_N)
-            c_free_array.remove(j)
+        elif pmigr[0] / zmigr < rv_m < (pmigr[0] + pmigr[1]) / zmigr:
+            j = full_topo[i][0]
+        elif (pmigr[0] + pmigr[1]) / zmigr < rv_m < (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr:
+            j = full_topo[i][1]
+        elif (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr < rv_m:
+            j = full_topo[i][2]
+        j = i
+        fluor[j] = 1
+        f_n += 1
+        zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities, beta, one_side, f_prohibided)
+        updcircle(j, N, M, 1, f_n, F_N)
+        c_free_array.remove(j)
+        choice_list=recalc_choice_list(c_free_array, f_prohibided, probabilities, zz)
 
-        elif res[0][1]/zz < rv < res[0][1]/zz + res[1][1]/zz:
-            pmigr = [probabilities[i][1][1]]
-            zmigr = probabilities[i][1][1]
-            rv_m = np.random.rand()
-            for k in full_topo[i]:
-                zmigr += probabilities[k][1][1]
-                pmigr.append(probabilities[k][1][1])
-            if 0. < rv_m < pmigr[0] / zmigr:
-                j = i
-            elif pmigr[0] / zmigr < rv_m < (pmigr[0] + pmigr[1]) / zmigr:
-                j = full_topo[i][0]
-            elif (pmigr[0] + pmigr[1]) / zmigr < rv_m < (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr:
-                j = full_topo[i][1]
-            elif (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr < rv_m:
-                j = full_topo[i][2]
+    elif res[0][1] / zz < rv < res[0][1] / zz + res[1][1] / zz:
+        pmigr = [probabilities[i][1][1]]
+        zmigr = probabilities[i][1][1]
+        rv_m = np.random.rand()
+        for k in full_topo[i]:
+            zmigr += probabilities[k][1][1]
+            pmigr.append(probabilities[k][1][1])
+        if 0. < rv_m < pmigr[0] / zmigr:
             j = i
-            fluor[j] = -1
-            f_n += 1
-            zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities, beta,one_side)
-            updcircle(j, N, M, -1, f_n, F_N)
-            c_free_array.remove(j)
+        elif pmigr[0] / zmigr < rv_m < (pmigr[0] + pmigr[1]) / zmigr:
+            j = full_topo[i][0]
+        elif (pmigr[0] + pmigr[1]) / zmigr < rv_m < (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr:
+            j = full_topo[i][1]
+        elif (pmigr[0] + pmigr[1] + pmigr[2]) / zmigr < rv_m:
+            j = full_topo[i][2]
+        j = i
+        fluor[j] = -1
+        f_n += 1
+        zz, probabilities = probsAndZ_calc(zz, j, coords, full_topo, fluor, probabilities, beta, one_side, f_prohibided)
+        updcircle(j, N, M, -1, f_n, F_N)
+        c_free_array.remove(j)
+        choice_list=recalc_choice_list(c_free_array, f_prohibided, probabilities, zz)
 
-    return f_n, zz, c_free_array
+    return f_n, zz, c_free_array,choice_list
 
 
 def calc_fluor(coords, full_topo, N, M, fluor, F_N, zz, f_prohibided, probabilities, beta,one_side):
     f_n = 0
     c_free_array = list(range(len(fluor)))
+    choice_list = recalc_choice_list(c_free_array, f_prohibided, probabilities, zz)
     while f_n < F_N:
-        f_n, zz, c_free_array = fluorination(f_n, N, M, zz, c_free_array, coords, full_topo, fluor, f_prohibided,
-                                             probabilities, beta, F_N,one_side)
+        f_n, zz, c_free_array,choice_list = fluorination(f_n, N, M, zz, c_free_array, coords, full_topo, fluor, f_prohibided,
+                                             probabilities, beta, F_N,one_side,choice_list)
 
     return fluor, zz
 

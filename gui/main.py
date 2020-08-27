@@ -166,7 +166,7 @@ f_gen_warn['text']='Set lattice parameters first'
 
 one_side_but = Checkbutton(f_gen,text="One side fluorination", variable=one_side, onvalue=0, offvalue=1,state=DISABLED )
 beta = DoubleVar()
-beta_scale = Scale( f_gen, variable = beta, from_=0.,to=30,resolution=0.01,label='order degree',orient=HORIZONTAL,state=DISABLED )
+beta_scale = Scale( f_gen, variable = beta, from_=0.,to=50,resolution=0.01,label='order degree',orient=HORIZONTAL,state=DISABLED )
 f_perc= DoubleVar()
 fperc_scale = Scale( f_gen, variable = f_perc, from_=0.,to=1.,resolution=0.01,label='fluorine content',orient=HORIZONTAL,state=DISABLED )
 
